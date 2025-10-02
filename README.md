@@ -13,5 +13,4 @@ No location or personal data is accessed.
 - **No location permissions required**
 - **Safe and lightweight:** Only accesses the CCML prayer time page and browser storage/notification/alarms APIs
 
-## Folder Structure
 
