@@ -1,58 +1,122 @@
 let PRAYER_TIMES = {};
 
-// Fetch prayer times from CCML website
+// Fetch prayer times from CCML website or use defaults
 async function fetchPrayerTimes() {
   try {
+    // First, try to get from API if available (check if CCML has an API endpoint)
+    // This is a placeholder - you may need to find the actual API endpoint
+    
+    // For now, use default times for Lausanne (approximate times)
+    // These should be updated based on actual CCML times or season
+    const defaultTimes = getDefaultPrayerTimes();
+    
+    // Try to fetch from website
     const url = "https://www.ccmgl.ch/fr/cultes/horaire-des-pri%C3%A8res";
     const response = await fetch(url);
     const text = await response.text();
     
-    // More robust parsing with multiple regex patterns
-    const patterns = [
-      // Pattern 1: Table format with prayer names and times
-      /Fajr.*?(\d{1,2}:\d{2})/is,
-      /Dhuhr.*?(\d{1,2}:\d{2})/is,
-      /Asr.*?(\d{1,2}:\d{2})/is,
-      /Maghrib.*?(\d{1,2}:\d{2})/is,
-      /Isha.*?(\d{1,2}:\d{2})/is
-    ];
+    // Try multiple extraction patterns
+    let extractedTimes = {};
     
-    const prayerNames = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
-    const extractedTimes = {};
-    
-    prayerNames.forEach((prayer, index) => {
-      const match = text.match(patterns[index]);
-      if (match && match[1]) {
-        extractedTimes[prayer] = match[1];
+    // Pattern 1: Look for JSON data in script tags
+    const jsonMatch = text.match(/var\s+prayerTimes\s*=\s*({[^}]+})/);
+    if (jsonMatch) {
+      try {
+        extractedTimes = JSON.parse(jsonMatch[1]);
+      } catch (e) {
+        console.log('JSON parsing failed');
       }
-    });
+    }
     
-    // Only update if we got all prayer times
+    // Pattern 2: Look for times in various formats - CCML uses French names
+    if (Object.keys(extractedTimes).length === 0) {
+      const patterns = {
+        Fajr: [/(?:Fadjr|Fajr|Sobh|Subh)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:فجر)[^0-9]*(\d{1,2}:\d{2})/],
+        Dhuhr: [/(?:Dhohr|Dhuhr|Dohr|Zuhr)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:ظهر)[^0-9]*(\d{1,2}:\d{2})/],
+        Asr: [/(?:Asr|Aser)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:عصر)[^0-9]*(\d{1,2}:\d{2})/],
+        Maghrib: [/(?:Maghrib|Maghreb|Magrib)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:مغرب)[^0-9]*(\d{1,2}:\d{2})/],
+        Isha: [/(?:Icha|Isha|Ischaa)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:عشاء)[^0-9]*(\d{1,2}:\d{2})/]
+      };
+      
+      for (const [prayer, patternList] of Object.entries(patterns)) {
+        for (const pattern of patternList) {
+          const match = text.match(pattern);
+          if (match && match[1]) {
+            // Normalize time format (replace h with :)
+            extractedTimes[prayer] = match[1].replace('h', ':');
+            break;
+          }
+        }
+      }
+    }
+    
+    // If we successfully extracted times, use them
     if (Object.keys(extractedTimes).length === 5) {
       PRAYER_TIMES = extractedTimes;
-      await chrome.storage.local.set({ 
-        prayerTimes: PRAYER_TIMES,
-        lastFetch: new Date().toISOString()
-      });
-      scheduleAlarms();
-      console.log('Prayer times fetched successfully:', PRAYER_TIMES);
+      console.log('Extracted prayer times from website:', PRAYER_TIMES);
     } else {
-      console.error('Could not extract all prayer times');
-      // Try to load from storage as fallback
-      const stored = await chrome.storage.local.get('prayerTimes');
-      if (stored.prayerTimes) {
-        PRAYER_TIMES = stored.prayerTimes;
-        scheduleAlarms();
-      }
+      // Use default times as fallback
+      PRAYER_TIMES = defaultTimes;
+      console.log('Using default prayer times:', PRAYER_TIMES);
     }
+    
+    // Save to storage
+    await chrome.storage.local.set({ 
+      prayerTimes: PRAYER_TIMES,
+      lastFetch: new Date().toISOString(),
+      source: Object.keys(extractedTimes).length === 5 ? 'website' : 'default'
+    });
+    
+    scheduleAlarms();
+    
   } catch (error) {
     console.error('Error fetching prayer times:', error);
-    // Load from storage as fallback
+    
+    // Load from storage or use defaults
     const stored = await chrome.storage.local.get('prayerTimes');
-    if (stored.prayerTimes) {
+    if (stored.prayerTimes && Object.keys(stored.prayerTimes).length === 5) {
       PRAYER_TIMES = stored.prayerTimes;
-      scheduleAlarms();
+    } else {
+      PRAYER_TIMES = getDefaultPrayerTimes();
     }
+    scheduleAlarms();
+  }
+}
+
+// Get default prayer times based on season
+function getDefaultPrayerTimes() {
+  const now = new Date();
+  const month = now.getMonth(); // 0-11
+  
+  // Winter times (November - February)
+  if (month >= 10 || month <= 1) {
+    return {
+      Fajr: "06:30",
+      Dhuhr: "12:30",
+      Asr: "14:30",
+      Maghrib: "17:00",
+      Isha: "19:00"
+    };
+  }
+  // Summer times (May - August)
+  else if (month >= 4 && month <= 7) {
+    return {
+      Fajr: "04:00",
+      Dhuhr: "13:30",
+      Asr: "17:30",
+      Maghrib: "21:00",
+      Isha: "23:00"
+    };
+  }
+  // Spring/Fall times
+  else {
+    return {
+      Fajr: "05:30",
+      Dhuhr: "13:00",
+      Asr: "16:00",
+      Maghrib: "19:00",
+      Isha: "20:30"
+    };
   }
 }
 

@@ -2,7 +2,69 @@
 (function() {
   console.log('CCML Prayer Times Extractor running...');
   
-  function extractPrayerTimes() {
+  // Wait for dynamic content to load
+  setTimeout(() => {
+    extractAndSaveTimes();
+  }, 2000);
+  
+  // Also try immediately
+  extractAndSaveTimes();
+  function extractAndSaveTimes() {
+    const times = extractPrayerTimes();
+    
+    if (Object.keys(times).length > 0) {
+      console.log('Extracted prayer times:', times);
+      
+      // Save to storage
+      chrome.storage.local.set({ 
+        prayerTimes: times,
+        lastFetch: new Date().toISOString(),
+        source: 'content-script'
+      }, () => {
+        console.log('Prayer times saved to storage');
+        
+        // Send to background script
+        chrome.runtime.sendMessage({
+          type: 'setFetchedTimes',
+          times: times
+        }).catch(err => {
+          console.log('Could not send message to background:', err);
+        });
+      });
+    } else {
+      console.error('Could not extract prayer times from page');
+      console.log('Debugging info:');
+      console.log('- Page URL:', window.location.href);
+      console.log('- Page title:', document.title);
+      
+      // Try to find any elements that might contain times
+      const timePatterns = /\d{1,2}[:h]\d{2}/g;
+      const possibleTimes = document.body.innerText.match(timePatterns);
+      if (possibleTimes) {
+        console.log('Found possible times on page:', possibleTimes);
+      }
+      
+      // Check for iframes that might contain the data
+      const iframes = document.querySelectorAll('iframe');
+      console.log('Number of iframes:', iframes.length);
+      
+      // Check for dynamic loading indicators
+      const scripts = document.querySelectorAll('script');
+      let hasReact = false, hasVue = false, hasAngular = false;
+      scripts.forEach(script => {
+        const src = script.src || '';
+        if (src.includes('react') || document.querySelector('[data-reactroot]')) hasReact = true;
+        if (src.includes('vue') || window.Vue) hasVue = true;
+        if (src.includes('angular') || document.querySelector('[ng-app]')) hasAngular = true;
+      });
+      
+      if (hasReact || hasVue || hasAngular) {
+        console.log('Page uses dynamic framework:', { hasReact, hasVue, hasAngular });
+        console.log('Content might be loaded dynamically. Retrying in 3 seconds...');
+        setTimeout(extractAndSaveTimes, 3000);
+      }
+    }
+  }
     const times = {};
     
     // Method 1: Try to find times in table format
