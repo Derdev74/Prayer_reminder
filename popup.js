@@ -145,15 +145,34 @@ document.addEventListener("DOMContentLoaded", async () => {
             files: ["content-script.js"]
           });
           
-          // Wait for extraction and reload times
-          setTimeout(async () => {
-            await loadTimes();
-            fetchBtn.textContent = "✓ Extracted from tab!";
-            setTimeout(() => {
-              fetchBtn.textContent = "Fetch Times from CCML Tab";
-              fetchBtn.disabled = false;
-            }, 2000);
-          }, 2000);
+          // Send message to extract times
+          chrome.tabs.sendMessage(ccmlTab.id, { type: 'extractTimes' }, async (response) => {
+            if (response && response.times && Object.keys(response.times).length === 5) {
+              // Save the extracted times
+              await chrome.storage.local.set({ 
+                prayerTimes: response.times,
+                lastFetch: new Date().toISOString(),
+                source: 'tab-extraction'
+              });
+              
+              showTimes(response.times);
+              fetchBtn.textContent = "✓ Extracted from tab!";
+              setTimeout(() => {
+                fetchBtn.textContent = "Fetch Times from CCML";
+                fetchBtn.disabled = false;
+              }, 2000);
+            } else {
+              // Wait for content script to do its work
+              setTimeout(async () => {
+                await loadTimes();
+                fetchBtn.textContent = "✓ Extracted from tab!";
+                setTimeout(() => {
+                  fetchBtn.textContent = "Fetch Times from CCML";
+                  fetchBtn.disabled = false;
+                }, 2000);
+              }, 3000);
+            }
+          });
         } else {
           // No CCML tab open, try direct fetch
           alert("Opening CCML website to fetch times...");

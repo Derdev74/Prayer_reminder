@@ -28,7 +28,45 @@ async function fetchPrayerTimes() {
       }
     }
     
-    // Pattern 2: Look for times in various formats - CCML uses French names
+    // Pattern 2: CCML table structure - look for calendar table
+    if (Object.keys(extractedTimes).length === 0) {
+      // Try to parse as HTML to find table structure
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+      const tables = doc.querySelectorAll('table');
+      
+      for (let table of tables) {
+        const tableText = table.innerText || table.textContent || '';
+        // Check if this is the prayer times table
+        if (tableText.includes('Fadjr') && tableText.includes('Dhohr') && tableText.includes('Maghrib')) {
+          // Get today's date
+          const today = new Date();
+          const todayDate = today.getDate();
+          
+          // Look for today's row
+          const rows = table.querySelectorAll('tr');
+          for (let row of rows) {
+            const rowText = row.innerText || row.textContent || '';
+            if (rowText.includes(String(todayDate))) {
+              // Extract all times from this row
+              const timeMatches = rowText.match(/\d{1,2}[:h]\d{2}/g);
+              if (timeMatches && timeMatches.length >= 6) {
+                // Order in CCML table: Fadjr, Sunrise, Dhohr, Asr, Maghrib, Icha
+                extractedTimes.Fajr = timeMatches[0].replace('h', ':');
+                extractedTimes.Dhuhr = timeMatches[2].replace('h', ':'); // Skip sunrise at index 1
+                extractedTimes.Asr = timeMatches[3].replace('h', ':');
+                extractedTimes.Maghrib = timeMatches[4].replace('h', ':');
+                extractedTimes.Isha = timeMatches[5].replace('h', ':');
+                console.log('Extracted from table row:', extractedTimes);
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Pattern 3: Fallback regex patterns - CCML uses French names
     if (Object.keys(extractedTimes).length === 0) {
       const patterns = {
         Fajr: [/(?:Fadjr|Fajr|Sobh|Subh)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:فجر)[^0-9]*(\d{1,2}:\d{2})/],

@@ -2,18 +2,19 @@
 (function() {
   console.log('CCML Prayer Times Extractor running...');
   
-  // Wait for dynamic content to load
+  // Wait for dynamic content to load, then extract
   setTimeout(() => {
     extractAndSaveTimes();
   }, 2000);
   
   // Also try immediately
   extractAndSaveTimes();
+  
   function extractAndSaveTimes() {
     const times = extractPrayerTimes();
     
-    if (Object.keys(times).length > 0) {
-      console.log('Extracted prayer times:', times);
+    if (Object.keys(times).length === 5) {
+      console.log('✓ Successfully extracted all prayer times:', times);
       
       // Save to storage
       chrome.storage.local.set({ 
@@ -32,158 +33,155 @@
         });
       });
     } else {
-      console.error('Could not extract prayer times from page');
-      console.log('Debugging info:');
-      console.log('- Page URL:', window.location.href);
-      console.log('- Page title:', document.title);
+      console.error('Could not extract all prayer times. Found:', times);
       
-      // Try to find any elements that might contain times
-      const timePatterns = /\d{1,2}[:h]\d{2}/g;
-      const possibleTimes = document.body.innerText.match(timePatterns);
-      if (possibleTimes) {
-        console.log('Found possible times on page:', possibleTimes);
-      }
-      
-      // Check for iframes that might contain the data
-      const iframes = document.querySelectorAll('iframe');
-      console.log('Number of iframes:', iframes.length);
-      
-      // Check for dynamic loading indicators
-      const scripts = document.querySelectorAll('script');
-      let hasReact = false, hasVue = false, hasAngular = false;
-      scripts.forEach(script => {
-        const src = script.src || '';
-        if (src.includes('react') || document.querySelector('[data-reactroot]')) hasReact = true;
-        if (src.includes('vue') || window.Vue) hasVue = true;
-        if (src.includes('angular') || document.querySelector('[ng-app]')) hasAngular = true;
-      });
-      
-      if (hasReact || hasVue || hasAngular) {
-        console.log('Page uses dynamic framework:', { hasReact, hasVue, hasAngular });
-        console.log('Content might be loaded dynamically. Retrying in 3 seconds...');
+      // Retry after a delay if we didn't get all times
+      if (Object.keys(times).length < 5) {
+        console.log('Retrying extraction in 3 seconds...');
         setTimeout(extractAndSaveTimes, 3000);
       }
     }
   }
+  
+  function extractPrayerTimes() {
     const times = {};
     
-    // Method 1: Try to find times in table format
+    // CCML uses a calendar table with prayer times
+    // Header: ['Date', 'Islamic Date', 'Fadjr', 'Lever du soleil', 'Dhohr', 'Asr', 'Maghrib', 'Icha']
+    // Columns 3-8 contain: Fadjr, Sunrise, Dhohr, Asr, Maghrib, Icha
+    
     const tables = document.querySelectorAll('table');
+    console.log('Found', tables.length, 'tables on page');
     
     for (let table of tables) {
       const rows = table.querySelectorAll('tr');
       
-      for (let row of rows) {
-        const cells = row.querySelectorAll('td');
+      // Find header row with prayer names
+      let headerRow = null;
+      let headerIndex = -1;
+      
+      for (let i = 0; i < rows.length; i++) {
+        const cells = rows[i].querySelectorAll('td, th');
+        const rowText = rows[i].innerText || rows[i].textContent || '';
         
-        if (cells.length >= 2) {
-          const nameCell = cells[0].textContent.trim().toLowerCase();
-          const timeCell = cells[1].textContent.trim();
+        // Check if this row contains prayer column headers
+        if (rowText.includes('Fadjr') && rowText.includes('Dhohr') && rowText.includes('Maghrib')) {
+          headerRow = rows[i];
+          headerIndex = i;
+          console.log('Found header row at index', i);
           
-          // Match prayer names in various formats
-          if (nameCell.includes('fajr') || nameCell.includes('sobh')) {
-            times.Fajr = timeCell.match(/\d{1,2}:\d{2}/)?.[0] || timeCell;
-          } else if (nameCell.includes('dhuhr') || nameCell.includes('dohr') || nameCell.includes('zuhr')) {
-            times.Dhuhr = timeCell.match(/\d{1,2}:\d{2}/)?.[0] || timeCell;
-          } else if (nameCell.includes('asr')) {
-            times.Asr = timeCell.match(/\d{1,2}:\d{2}/)?.[0] || timeCell;
-          } else if (nameCell.includes('maghrib') || nameCell.includes('maghreb')) {
-            times.Maghrib = timeCell.match(/\d{1,2}:\d{2}/)?.[0] || timeCell;
-          } else if (nameCell.includes('isha') || nameCell.includes('icha')) {
-            times.Isha = timeCell.match(/\d{1,2}:\d{2}/)?.[0] || timeCell;
-          }
-        }
-      }
-    }
-    
-    // Method 2: Try to find times using regex on entire page
-    if (Object.keys(times).length < 5) {
-      const bodyText = document.body.innerText || document.body.textContent;
-      
-      const patterns = {
-        Fajr: /(?:fajr|sobh)[^\d]*(\d{1,2}:\d{2})/i,
-        Dhuhr: /(?:dhuhr|dohr|zuhr)[^\d]*(\d{1,2}:\d{2})/i,
-        Asr: /asr[^\d]*(\d{1,2}:\d{2})/i,
-        Maghrib: /(?:maghrib|maghreb)[^\d]*(\d{1,2}:\d{2})/i,
-        Isha: /(?:isha|icha)[^\d]*(\d{1,2}:\d{2})/i
-      };
-      
-      for (let [prayer, pattern] of Object.entries(patterns)) {
-        if (!times[prayer]) {
-          const match = bodyText.match(pattern);
-          if (match && match[1]) {
-            times[prayer] = match[1];
-          }
-        }
-      }
-    }
-    
-    // Method 3: Look for divs or spans with prayer times
-    if (Object.keys(times).length < 5) {
-      const allElements = document.querySelectorAll('div, span, p, td');
-      
-      const prayerNames = {
-        'fajr': 'Fajr',
-        'sobh': 'Fajr',
-        'dhuhr': 'Dhuhr',
-        'dohr': 'Dhuhr',
-        'zuhr': 'Dhuhr',
-        'asr': 'Asr',
-        'maghrib': 'Maghrib',
-        'maghreb': 'Maghrib',
-        'isha': 'Isha',
-        'icha': 'Isha'
-      };
-      
-      allElements.forEach(element => {
-        const text = element.textContent.toLowerCase();
-        for (let [key, prayer] of Object.entries(prayerNames)) {
-          if (text.includes(key) && !times[prayer]) {
-            // Look for time in the same element or next sibling
-            const timeMatch = element.textContent.match(/\d{1,2}:\d{2}/);
-            if (timeMatch) {
-              times[prayer] = timeMatch[0];
-            } else if (element.nextElementSibling) {
-              const nextMatch = element.nextElementSibling.textContent.match(/\d{1,2}:\d{2}/);
-              if (nextMatch) {
-                times[prayer] = nextMatch[0];
+          // Map column indices for each prayer
+          const columnMap = {};
+          cells.forEach((cell, idx) => {
+            const text = cell.innerText.trim();
+            if (text === 'Fadjr') columnMap.Fajr = idx;
+            else if (text === 'Dhohr') columnMap.Dhuhr = idx;
+            else if (text === 'Asr') columnMap.Asr = idx;
+            else if (text === 'Maghrib') columnMap.Maghrib = idx;
+            else if (text === 'Icha') columnMap.Isha = idx;
+          });
+          
+          console.log('Column mapping:', columnMap);
+          
+          // Get today's date
+          const today = new Date();
+          const todayDate = today.getDate();
+          const todayMonth = today.toLocaleDateString('fr-FR', { month: 'long' });
+          
+          console.log(`Looking for today's date: ${todayDate} ${todayMonth}`);
+          
+          // Find today's row or use the first data row
+          let targetRow = null;
+          
+          // First, try to find today's date
+          for (let j = headerIndex + 1; j < rows.length; j++) {
+            const cells = rows[j].querySelectorAll('td');
+            if (cells.length >= 9) { // Must have enough columns
+              const dateCell = cells[1]; // Date is usually in column 1
+              const dateText = dateCell ? dateCell.innerText.trim() : '';
+              
+              if (dateText === String(todayDate)) {
+                targetRow = rows[j];
+                console.log(`Found today's row (${todayDate}):`, targetRow.innerText);
+                break;
               }
             }
           }
+          
+          // If we couldn't find today, use the first data row (tomorrow's times are better than none)
+          if (!targetRow && rows[headerIndex + 1]) {
+            targetRow = rows[headerIndex + 1];
+            console.log('Using first data row as fallback:', targetRow.innerText);
+          }
+          
+          // Extract times from the target row
+          if (targetRow) {
+            const cells = targetRow.querySelectorAll('td');
+            
+            // Extract using column indices
+            for (const [prayer, colIdx] of Object.entries(columnMap)) {
+              if (cells[colIdx]) {
+                const timeText = cells[colIdx].innerText.trim();
+                const timeMatch = timeText.match(/\d{1,2}[:h]\d{2}/);
+                if (timeMatch) {
+                  times[prayer] = timeMatch[0].replace('h', ':');
+                  console.log(`Extracted ${prayer}:`, times[prayer]);
+                }
+              }
+            }
+          }
+          
+          // If we found times, we're done
+          if (Object.keys(times).length === 5) {
+            return times;
+          }
         }
-      });
+      }
+    }
+    
+    // Fallback: Try regex extraction if table method failed
+    if (Object.keys(times).length < 5) {
+      console.log('Table extraction incomplete, trying regex method...');
+      const pageText = document.body.innerText || document.body.textContent || '';
+      
+      // Look for today's date first
+      const today = new Date();
+      const todayDate = today.getDate();
+      
+      // Find the line/section with today's date and extract times
+      const lines = pageText.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Check if line contains today's date
+        if (line.includes(String(todayDate))) {
+          // This line or the next few lines might have the times
+          const nearbyText = lines.slice(i, i + 3).join(' ');
+          const timeMatches = nearbyText.match(/\d{1,2}[:h]\d{2}/g);
+          
+          if (timeMatches && timeMatches.length >= 6) {
+            // Assuming order: Fadjr, Sunrise, Dhohr, Asr, Maghrib, Icha
+            times.Fajr = timeMatches[0].replace('h', ':');
+            times.Dhuhr = timeMatches[2].replace('h', ':'); // Skip sunrise
+            times.Asr = timeMatches[3].replace('h', ':');
+            times.Maghrib = timeMatches[4].replace('h', ':');
+            times.Isha = timeMatches[5].replace('h', ':');
+            
+            console.log('Extracted times from date line:', times);
+            break;
+          }
+        }
+      }
     }
     
     return times;
   }
   
-  // Extract times
-  const extractedTimes = extractPrayerTimes();
-  console.log('Extracted prayer times:', extractedTimes);
-  
-  // Save to storage if we found prayer times
-  if (Object.keys(extractedTimes).length > 0) {
-    chrome.storage.local.set({ 
-      prayerTimes: extractedTimes,
-      lastFetch: new Date().toISOString()
-    }, () => {
-      console.log('Prayer times saved to storage');
-      
-      // Also send to background script
-      chrome.runtime.sendMessage({
-        type: 'setFetchedTimes',
-        times: extractedTimes
-      }).catch(err => {
-        // Message might fail if popup is closed, that's okay
-        console.log('Could not send message to background:', err);
-      });
-    });
-  } else {
-    console.error('Could not extract prayer times from page');
-    
-    // Try alternative extraction for debugging
-    console.log('Page title:', document.title);
-    console.log('Number of tables found:', document.querySelectorAll('table').length);
-    console.log('Sample of page text:', document.body.innerText.substring(0, 500));
-  }
+  // Also listen for messages from popup
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.type === 'extractTimes') {
+      const times = extractPrayerTimes();
+      sendResponse({ times: times });
+    }
+  });
 })();
