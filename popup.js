@@ -123,12 +123,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       // First, try to fetch directly via background script
       const response = await chrome.runtime.sendMessage({ type: "fetchNow" });
       
-      if (response && response.status === "ok" && response.times) {
+      if (response && response.status === "ok" && response.times && Object.keys(response.times).length === 5) {
         showTimes(response.times);
+        await chrome.storage.local.set({ 
+          prayerTimes: response.times,
+          lastFetch: new Date().toISOString()
+        });
         fetchBtn.textContent = "✓ Fetched Successfully!";
         
         setTimeout(() => {
-          fetchBtn.textContent = "Fetch Times from CCML";
+          fetchBtn.textContent = "🔄 Fetch Times from CCML";
           fetchBtn.disabled = false;
         }, 2000);
       } else {

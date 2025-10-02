@@ -114,22 +114,20 @@
             console.log('Using first data row as fallback:', targetRow.innerText);
           }
           
-          // Extract times from the target row
+          // Extract times from the target row - using fixed column positions
           if (targetRow) {
             const cells = targetRow.querySelectorAll('td');
             
-            // Extract using column indices
-            for (const [prayer, colIdx] of Object.entries(columnMap)) {
-              if (cells[colIdx]) {
-                const timeText = cells[colIdx].innerText.trim();
-                const timeMatch = timeText.match(/\d{1,2}[:h]\d{2}/);
-                if (timeMatch) {
-                  times[prayer] = timeMatch[0].replace('h', ':');
-                  console.log(`Extracted ${prayer}:`, times[prayer]);
-                }
-              }
+            // CCML table has fixed structure: Day, Date, Islamic Date, Fadjr, Sunrise, Dhohr, Asr, Maghrib, Icha
+            if (cells.length >= 9) {
+              times.Fajr = cells[3].innerText.trim().replace('h', ':');
+              times.Dhuhr = cells[5].innerText.trim().replace('h', ':');
+              times.Asr = cells[6].innerText.trim().replace('h', ':');
+              times.Maghrib = cells[7].innerText.trim().replace('h', ':');
+              times.Isha = cells[8].innerText.trim().replace('h', ':');
+              
+              console.log('Extracted times from row:', times);
             }
-          }
           
           // If we found times, we're done
           if (Object.keys(times).length === 5) {

@@ -14,7 +14,8 @@ async function fetchPrayerTimes() {
     const url = "https://www.ccmgl.ch/fr/cultes/horaire-des-pri%C3%A8res";
     const response = await fetch(url);
     const text = await response.text();
-    
+    console.log('Fetched HTML length:', text.length);
+    console.log('Sample of fetched text:', text.substring(0, 500));
     // Try multiple extraction patterns
     let extractedTimes = {};
     
@@ -28,39 +29,30 @@ async function fetchPrayerTimes() {
       }
     }
     
-    // Pattern 2: CCML table structure - look for calendar table
+// Pattern 2: CCML table structure - extract from raw text
     if (Object.keys(extractedTimes).length === 0) {
-      // Try to parse as HTML to find table structure
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, 'text/html');
-      const tables = doc.querySelectorAll('table');
+      // Find today's date
+      const today = new Date();
+      const todayDate = today.getDate();
       
-      for (let table of tables) {
-        const tableText = table.innerText || table.textContent || '';
-        // Check if this is the prayer times table
-        if (tableText.includes('Fadjr') && tableText.includes('Dhohr') && tableText.includes('Maghrib')) {
-          // Get today's date
-          const today = new Date();
-          const todayDate = today.getDate();
-          
-          // Look for today's row
-          const rows = table.querySelectorAll('tr');
-          for (let row of rows) {
-            const rowText = row.innerText || row.textContent || '';
-            if (rowText.includes(String(todayDate))) {
-              // Extract all times from this row
-              const timeMatches = rowText.match(/\d{1,2}[:h]\d{2}/g);
-              if (timeMatches && timeMatches.length >= 6) {
-                // Order in CCML table: Fadjr, Sunrise, Dhohr, Asr, Maghrib, Icha
-                extractedTimes.Fajr = timeMatches[0].replace('h', ':');
-                extractedTimes.Dhuhr = timeMatches[2].replace('h', ':'); // Skip sunrise at index 1
-                extractedTimes.Asr = timeMatches[3].replace('h', ':');
-                extractedTimes.Maghrib = timeMatches[4].replace('h', ':');
-                extractedTimes.Isha = timeMatches[5].replace('h', ':');
-                console.log('Extracted from table row:', extractedTimes);
-                break;
-              }
-            }
+      // Look for a line containing today's date followed by times
+      const lines = text.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Check if line contains today's date as second item (after day name)
+        const parts = line.split(/\s+/);
+        if (parts[1] === String(todayDate)) {
+          // Extract times from this line - they appear after date and Islamic date
+          const timeMatches = line.match(/\d{2}:\d{2}/g);
+          if (timeMatches && timeMatches.length >= 6) {
+            // Order: Fadjr, Sunrise, Dhohr, Asr, Maghrib, Icha
+            extractedTimes.Fajr = timeMatches[0];
+            extractedTimes.Dhuhr = timeMatches[2]; // Skip sunrise at index 1
+            extractedTimes.Asr = timeMatches[3];
+            extractedTimes.Maghrib = timeMatches[4];
+            extractedTimes.Isha = timeMatches[5];
+            console.log('Extracted from line for date ' + todayDate + ':', extractedTimes);
+            break;
           }
         }
       }
@@ -312,6 +304,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'fetchNow') {
     fetchPrayerTimes().then(() => {
       sendResponse({ status: 'ok', times: PRAYER_TIMES });
+    });
+    return true;
+  }
+  
+  // ADD THIS NEW HANDLER HERE:
+  if (request.type === 'setFetchedTimes' && request.times) {
+    PRAYER_TIMES = request.times;
+    chrome.storage.local.set({ 
+      prayerTimes: PRAYER_TIMES,
+      lastFetch: new Date().toISOString(),
+      source: 'content-script'
+    }).then(() => {
+      scheduleAlarms();
+      sendResponse({ status: 'ok' });
     });
     return true;
   }
