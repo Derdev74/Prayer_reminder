@@ -12,6 +12,14 @@
     "tabs",
     "offscreen"
   ],
+  "offscreen": {
+    "reasons": ["AUDIO_PLAYBACK"],
+    "justification": "Play adhan audio for prayer notification"
+  },
+
+  "host_permissions": [
+    "https://www.ccmgl.ch/*"
+  ],
   
   "host_permissions": [
     "https://www.ccmgl.ch/*"
