@@ -1,35 +1,230 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>CCML Prayer Times</title>
-    <style>
-      body { font-family: Arial, sans-serif; width: 280px; margin: 12px;}
-      label { font-weight: bold; }
-      input { width: 50px; margin-right: 10px;}
-    </style>
-  </head>
-  <body>
-    <h3>Today's CCML Prayer Times</h3>
+<head>
+  <meta charset="UTF-8">
+  <title>CCML Prayer Times</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      width: 320px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+    }
+    
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 15px;
+      text-align: center;
+      border-bottom: 2px solid #667eea;
+    }
+    
+    h3 {
+      color: #667eea;
+      font-size: 18px;
+      margin-bottom: 5px;
+    }
+    
+    .subtitle {
+      font-size: 11px;
+      color: #666;
+    }
+    
+    .content {
+      background: white;
+      padding: 15px;
+    }
+    
+    #times-list {
+      list-style: none;
+      margin-bottom: 15px;
+    }
+    
+    #times-list li {
+      padding: 8px;
+      margin: 5px 0;
+      background: #f8f9fa;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    #times-list li strong {
+      color: #667eea;
+      min-width: 60px;
+    }
+    
+    .section-title {
+      font-weight: bold;
+      color: #667eea;
+      margin: 15px 0 10px;
+      font-size: 14px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 5px;
+    }
+    
+    #edit-times {
+      margin-top: 10px;
+    }
+    
+    .time-input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .time-input-group {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      background: #f8f9fa;
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
+    
+    .time-input-group label {
+      font-size: 12px;
+      color: #667eea;
+      font-weight: bold;
+      min-width: 45px;
+    }
+    
+    input[type="text"] {
+      width: 60px;
+      padding: 5px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      font-size: 13px;
+      text-align: center;
+    }
+    
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+    }
+    
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+      width: 100%;
+      margin-top: 10px;
+      transition: background 0.3s;
+    }
+    
+    button:hover:not(:disabled) {
+      background: #5568d3;
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    #fetch-btn {
+      background: #48bb78;
+    }
+    
+    #fetch-btn:hover:not(:disabled) {
+      background: #38a169;
+    }
+    
+    .help-text {
+      font-size: 11px;
+      color: #666;
+      margin-top: 10px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 5px;
+      line-height: 1.4;
+    }
+    
+    .help-text a {
+      color: #667eea;
+      text-decoration: none;
+    }
+    
+    .help-text a:hover {
+      text-decoration: underline;
+    }
+    
+    .footer {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      text-align: center;
+      font-size: 10px;
+      color: #666;
+      border-top: 1px solid #e0e0e0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h3>🕌 CCML Prayer Times</h3>
+    <div class="subtitle">Centre Culturel des Musulmans de Lausanne</div>
+  </div>
+  
+  <div class="content">
     <ul id="times-list"></ul>
-    <hr>
-    <label>Edit times (manual entry):</label>
+    
+    <div class="section-title">Manual Time Entry</div>
     <form id="edit-times">
-      <div>
-        Fajr: <input id="Fajr" type="text" />
-        Dhuhr: <input id="Dhuhr" type="text" />
+      <div class="time-input-row">
+        <div class="time-input-group">
+          <label for="Fajr">Fajr:</label>
+          <input id="Fajr" type="text" placeholder="05:30" />
+        </div>
+        <div class="time-input-group">
+          <label for="Dhuhr">Dhuhr:</label>
+          <input id="Dhuhr" type="text" placeholder="13:15" />
+        </div>
       </div>
-      <div>
-        Asr: <input id="Asr" type="text" />
-        Maghrib: <input id="Maghrib" type="text" />
+      
+      <div class="time-input-row">
+        <div class="time-input-group">
+          <label for="Asr">Asr:</label>
+          <input id="Asr" type="text" placeholder="16:45" />
+        </div>
+        <div class="time-input-group">
+          <label for="Maghrib">Maghrib:</label>
+          <input id="Maghrib" type="text" placeholder="19:30" />
+        </div>
       </div>
-      <div>
-        Isha: <input id="Isha" type="text" />
+      
+      <div class="time-input-row">
+        <div class="time-input-group">
+          <label for="Isha">Isha:</label>
+          <input id="Isha" type="text" placeholder="21:00" />
+        </div>
       </div>
-      <button type="submit">Save Times</button>
+      
+      <button type="submit">💾 Save Prayer Times</button>
     </form>
-    <hr>
-    <button id="fetch-btn">Fetch Times from CCML Tab</button>
-    <p style="font-size:small">Open <a href="https://www.ccmgl.ch/fr/cultes/horaire-des-pri%C3%A8res" target="_blank">CCML Website</a> in a tab, then use this button.</p>
-    <script src="popup.js"></script>
-  </body>
+    
+    <button id="fetch-btn">🔄 Fetch Times from CCML</button>
+    
+    <div class="help-text">
+      <strong>Tip:</strong> The extension automatically fetches times daily from 
+      <a href="https://www.ccmgl.ch/fr/cultes/horaire-des-pri%C3%A8res" target="_blank">CCML website</a>.
+      You can also enter times manually above. Times should be in 24-hour format (HH:MM).
+    </div>
+  </div>
+  
+  <div class="footer">
+    Notifications will appear at each prayer time with adhan
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
 </html>

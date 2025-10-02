@@ -1,27 +1,54 @@
 {
   "manifest_version": 3,
   "name": "CCML Prayer Reminder",
-  "version": "1.3",
+  "version": "2.0",
   "description": "Shows notifications and plays adhan for CCML prayer times in Lausanne with daily live fetch.",
-  "permissions": ["alarms", "notifications", "storage", "scripting", "tabs"],
-  "host_permissions": ["https://www.ccmgl.ch/*"],
+  
+  "permissions": [
+    "alarms",
+    "notifications",
+    "storage",
+    "scripting",
+    "tabs",
+    "offscreen"
+  ],
+  
+  "host_permissions": [
+    "https://www.ccmgl.ch/*"
+  ],
+  
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
+  
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "icon.png"
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
   },
+  
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  
   "web_accessible_resources": [
     {
       "resources": ["adhan.mp3", "icon.png"],
       "matches": ["<all_urls>"]
     }
   ],
+  
   "content_scripts": [
     {
-      "matches": ["https://www.ccmgl.ch/fr/cultes/horaire-des-pri%C3%A8res*"],
-      "js": ["content-script.js"]
+      "matches": ["https://www.ccmgl.ch/fr/cultes/horaire-des-pri*"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
     }
   ]
 }
