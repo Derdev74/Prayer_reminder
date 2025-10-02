@@ -43,143 +43,104 @@
     }
   }
   
-  function extractPrayerTimes() {
-    const times = {};
+ function extractPrayerTimes() {
+  const times = {};
+  
+  // Get today's date
+  const today = new Date();
+  const todayDate = today.getDate();
+  
+  console.log(`Looking for prayer times for date: ${todayDate}`);
+  
+  // Find all tables
+  const tables = document.querySelectorAll('table');
+  
+  for (let table of tables) {
+    const rows = table.querySelectorAll('tr');
     
-    // CCML uses a calendar table with prayer times
-    // Header: ['Date', 'Islamic Date', 'Fadjr', 'Lever du soleil', 'Dhohr', 'Asr', 'Maghrib', 'Icha']
-    // Columns 3-8 contain: Fadjr, Sunrise, Dhohr, Asr, Maghrib, Icha
-    
-    const tables = document.querySelectorAll('table');
-    console.log('Found', tables.length, 'tables on page');
-    
-    for (let table of tables) {
-      const rows = table.querySelectorAll('tr');
+    // Look for a row containing today's date
+    for (let row of rows) {
+      const cells = row.querySelectorAll('td');
       
-      // Find header row with prayer names
-      let headerRow = null;
-      let headerIndex = -1;
+      // Check if this row contains today's date in the first few cells
+      let dateFound = false;
+      for (let i = 0; i < Math.min(3, cells.length); i++) {
+        const cellText = cells[i]?.innerText?.trim() || '';
+        // Check if cell contains just the date number
+        if (cellText === String(todayDate) || cellText.includes(String(todayDate))) {
+          dateFound = true;
+          break;
+        }
+      }
       
-      for (let i = 0; i < rows.length; i++) {
-        const cells = rows[i].querySelectorAll('td, th');
-        const rowText = rows[i].innerText || rows[i].textContent || '';
+      if (dateFound && cells.length >= 9) {
+        console.log('Found today\'s row with', cells.length, 'cells');
         
-        // Check if this row contains prayer column headers
-        if (rowText.includes('Fadjr') && rowText.includes('Dhohr') && rowText.includes('Maghrib')) {
-          headerRow = rows[i];
-          headerIndex = i;
-          console.log('Found header row at index', i);
-          
-          // Map column indices for each prayer
-          const columnMap = {};
-          cells.forEach((cell, idx) => {
-            const text = cell.innerText.trim();
-            if (text === 'Fadjr') columnMap.Fajr = idx;
-            else if (text === 'Dhohr') columnMap.Dhuhr = idx;
-            else if (text === 'Asr') columnMap.Asr = idx;
-            else if (text === 'Maghrib') columnMap.Maghrib = idx;
-            else if (text === 'Icha') columnMap.Isha = idx;
-          });
-          
-          console.log('Column mapping:', columnMap);
-          
-          // Get today's date
-          const today = new Date();
-          const todayDate = today.getDate();
-          const todayMonth = today.toLocaleDateString('fr-FR', { month: 'long' });
-          
-          console.log(`Looking for today's date: ${todayDate} ${todayMonth}`);
-          
-          // Find today's row or use the first data row
-          let targetRow = null;
-          
-          // First, try to find today's date
-          for (let j = headerIndex + 1; j < rows.length; j++) {
-            const cells = rows[j].querySelectorAll('td');
-            if (cells.length >= 9) { // Must have enough columns
-              const dateCell = cells[1]; // Date is usually in column 1
-              const dateText = dateCell ? dateCell.innerText.trim() : '';
-              
-              if (dateText === String(todayDate)) {
-                targetRow = rows[j];
-                console.log(`Found today's row (${todayDate}):`, targetRow.innerText);
-                break;
-              }
-            }
-          }
-          
-          // If we couldn't find today, use the first data row (tomorrow's times are better than none)
-          if (!targetRow && rows[headerIndex + 1]) {
-            targetRow = rows[headerIndex + 1];
-            console.log('Using first data row as fallback:', targetRow.innerText);
-          }
-          
-          // Extract times from the target row - using fixed column positions
-          if (targetRow) {
-            const cells = targetRow.querySelectorAll('td');
-            
-            // CCML table has fixed structure: Day, Date, Islamic Date, Fadjr, Sunrise, Dhohr, Asr, Maghrib, Icha
-            if (cells.length >= 9) {
-              times.Fajr = cells[3].innerText.trim().replace('h', ':');
-              times.Dhuhr = cells[5].innerText.trim().replace('h', ':');
-              times.Asr = cells[6].innerText.trim().replace('h', ':');
-              times.Maghrib = cells[7].innerText.trim().replace('h', ':');
-              times.Isha = cells[8].innerText.trim().replace('h', ':');
-              
-              console.log('Extracted times from row:', times);
-            }
-          
-          // If we found times, we're done
-          if (Object.keys(times).length === 5) {
-            return times;
-          }
+        // Extract times from known positions
+        // Format: Day | Date | Islamic Date | Fajr | Sunrise | Dhuhr | Asr | Maghrib | Isha
+        const extractTime = (cell) => {
+          const text = cell?.innerText?.trim() || '';
+          // Handle both HH:MM and HHhMM formats
+          return text.replace(/h/gi, ':').replace(/\s/g, '');
+        };
+        
+        times.Fajr = extractTime(cells[3]);
+        // Skip sunrise at index 4
+        times.Dhuhr = extractTime(cells[5]);
+        times.Asr = extractTime(cells[6]);
+        times.Maghrib = extractTime(cells[7]);
+        times.Isha = extractTime(cells[8]);
+        
+        // Validate extracted times
+        const timeRegex = /^\d{1,2}:\d{2}$/;
+        const allValid = Object.values(times).every(time => timeRegex.test(time));
+        
+        if (allValid) {
+          console.log('Successfully extracted all times:', times);
+          return times;
+        } else {
+          console.log('Invalid time format detected, trying next row');
+          // Reset and continue searching
+          Object.keys(times).forEach(key => delete times[key]);
         }
       }
     }
-    
-    // Fallback: Try regex extraction if table method failed
-    if (Object.keys(times).length < 5) {
-      console.log('Table extraction incomplete, trying regex method...');
-      const pageText = document.body.innerText || document.body.textContent || '';
-      
-      // Look for today's date first
-      const today = new Date();
-      const todayDate = today.getDate();
-      
-      // Find the line/section with today's date and extract times
-      const lines = pageText.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        
-        // Check if line contains today's date
-        if (line.includes(String(todayDate))) {
-          // This line or the next few lines might have the times
-          const nearbyText = lines.slice(i, i + 3).join(' ');
-          const timeMatches = nearbyText.match(/\d{1,2}[:h]\d{2}/g);
-          
-          if (timeMatches && timeMatches.length >= 6) {
-            // Assuming order: Fadjr, Sunrise, Dhohr, Asr, Maghrib, Icha
-            times.Fajr = timeMatches[0].replace('h', ':');
-            times.Dhuhr = timeMatches[2].replace('h', ':'); // Skip sunrise
-            times.Asr = timeMatches[3].replace('h', ':');
-            times.Maghrib = timeMatches[4].replace('h', ':');
-            times.Isha = timeMatches[5].replace('h', ':');
-            
-            console.log('Extracted times from date line:', times);
-            break;
-          }
-        }
-      }
-    }
-    
-    return times;
   }
   
-  // Also listen for messages from popup
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.type === 'extractTimes') {
-      const times = extractPrayerTimes();
-      sendResponse({ times: times });
+  // Fallback: Try to find times in text format if table extraction failed
+  if (Object.keys(times).length < 5) {
+    console.log('Table extraction failed, trying text extraction...');
+    
+    const pageText = document.body.innerText || '';
+    const lines = pageText.split('\n');
+    
+    // Look for lines containing today's date and times
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      if (line.includes(String(todayDate))) {
+        // Check this line and next few lines for time patterns
+        const searchText = lines.slice(i, Math.min(i + 5, lines.length)).join(' ');
+        const timeMatches = searchText.match(/\d{1,2}[h:]\d{2}/g);
+        
+        if (timeMatches && timeMatches.length >= 6) {
+          // Normalize times
+          const normalizedTimes = timeMatches.map(t => t.replace(/h/gi, ':'));
+          
+          times.Fajr = normalizedTimes[0];
+          times.Dhuhr = normalizedTimes[2]; // Skip sunrise
+          times.Asr = normalizedTimes[3];
+          times.Maghrib = normalizedTimes[4];
+          times.Isha = normalizedTimes[5];
+          
+          console.log('Extracted from text:', times);
+          break;
+        }
+      }
     }
+  }
+  
+  return times;
+}
   });
 })();

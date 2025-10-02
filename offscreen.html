@@ -4,31 +4,53 @@
   <title>Offscreen Audio Player</title>
 </head>
 <body>
-  <script>
-    // Listen for messages to play audio
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      if (request.type === 'playAdhan' && request.audioFile) {
-        const audio = new Audio(chrome.runtime.getURL(request.audioFile));
-        audio.volume = 0.8; // Set reasonable volume
-        
-        audio.play()
-          .then(() => {
-            console.log('Adhan playing...');
-            if (sendResponse) sendResponse({ status: 'playing' });
-          })
-          .catch(error => {
-            console.error('Error playing adhan:', error);
-            if (sendResponse) sendResponse({ status: 'error', error: error.message });
-          });
-        
-        // Clean up after audio finishes
-        audio.addEventListener('ended', () => {
-          console.log('Adhan finished');
+<script>
+  console.log('Offscreen document loaded');
+  
+  // Create audio element immediately
+  let audio = null;
+  
+  // Listen for messages to play audio
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('Offscreen received message:', request);
+    
+    if (request.type === 'playAdhan' && request.audioFile) {
+      // Create new audio instance
+      audio = new Audio(chrome.runtime.getURL(request.audioFile));
+      audio.volume = 0.7;
+      
+      // If local file fails, use online backup
+      audio.onerror = () => {
+        console.log('Local adhan not found, using online version');
+        audio = new Audio('https://www.islamcan.com/audio/adhan/azan1.mp3');
+        audio.volume = 0.7;
+        audio.play().catch(e => console.error('Online audio also failed:', e));
+      };
+      // Play audio
+      audio.play()
+        .then(() => {
+          console.log('Adhan started playing');
+          if (sendResponse) sendResponse({ status: 'playing' });
+        })
+        .catch(error => {
+          console.error('Error playing adhan:', error);
+          if (sendResponse) sendResponse({ status: 'error', error: error.message });
         });
-        
-        return true; // Keep message channel open
-      }
-    });
-  </script>
+      
+      // Clean up when finished
+      audio.addEventListener('ended', () => {
+        console.log('Adhan finished playing');
+        audio = null;
+      });
+      
+      return true; // Keep message channel open
+    }
+  });
+  
+  // Keep the document alive
+  setInterval(() => {
+    // Heartbeat to keep document active during playback
+  }, 1000);
+</script>
 </body>
 </html>

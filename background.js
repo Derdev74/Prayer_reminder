@@ -234,42 +234,51 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
 });
 
-// Play adhan using offscreen document (Manifest V3 compatible)
 async function playAdhan() {
   try {
-    // Check if we can create an offscreen document
+    // Check if offscreen document already exists
     const existingContexts = await chrome.runtime.getContexts({
       contextTypes: ['OFFSCREEN_DOCUMENT']
-    });
+    }).catch(() => []);
     
     if (existingContexts.length === 0) {
-      // Create offscreen document for audio playback
+      // Create offscreen document
       await chrome.offscreen.createDocument({
         url: 'offscreen.html',
         reasons: ['AUDIO_PLAYBACK'],
         justification: 'Play adhan audio for prayer notification'
       });
+      
+      // Wait a bit for document to be ready
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
     // Send message to play audio
-    chrome.runtime.sendMessage({ 
+    await chrome.runtime.sendMessage({ 
       type: 'playAdhan',
       audioFile: 'adhan.mp3'
     });
     
-    // Close offscreen document after audio plays (estimate 3 minutes)
+    // Close offscreen document after 3 minutes
     setTimeout(async () => {
-      const contexts = await chrome.runtime.getContexts({
-        contextTypes: ['OFFSCREEN_DOCUMENT']
-      });
-      if (contexts.length > 0) {
+      try {
         await chrome.offscreen.closeDocument();
+      } catch (e) {
+        // Document might already be closed
       }
-    }, 180000); // 3 minutes
+    }, 180000);
     
   } catch (error) {
     console.error('Error playing adhan:', error);
-    // Fallback: just show notification without audio
+    
+    // Fallback: Try direct audio playback in service worker (may not work in all browsers)
+    try {
+      const audio = new Audio(chrome.runtime.getURL('adhan.mp3'));
+      audio.volume = 0.5;
+      await audio.play();
+    } catch (fallbackError) {
+      console.error('Fallback audio also failed:', fallbackError);
+    }
   }
 }
 
