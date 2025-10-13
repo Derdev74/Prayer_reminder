@@ -179,25 +179,27 @@ document.addEventListener("DOMContentLoaded", async () => {
           });
         } else {
           // No CCML tab open, try direct fetch
-          alert("Opening CCML website to fetch times...");
+          alert("Opening CCML website to fetch times... This may take a few seconds.");
           chrome.tabs.create({
             url: "https://www.ccmgl.ch/fr/cultes/horaire-des-pri%C3%A8res",
             active: false
           }, (tab) => {
+            // Wait for page to fully load and JavaScript to execute
             setTimeout(async () => {
               try {
                 await chrome.scripting.executeScript({
                   target: { tabId: tab.id },
                   files: ["content-script.js"]
                 });
+                // Wait longer for extraction to complete (content script will retry)
                 setTimeout(async () => {
                   await loadTimes();
                   chrome.tabs.remove(tab.id);
-                }, 3000);
+                }, 10000); // Extended wait time for JS to execute and extract times
               } catch (err) {
                 console.error("Error injecting script:", err);
               }
-            }, 3000); // Wait for page to load
+            }, 4000); // Wait for page to load
           });
           
           fetchBtn.textContent = "Fetch Times from CCML Tab";

@@ -253,10 +253,13 @@ async function playAdhan() {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // Send message to play audio
-    await chrome.runtime.sendMessage({ 
+    // Send message to offscreen document to play audio
+    // Note: We need to broadcast to all runtime contexts since offscreen is a separate context
+    await chrome.runtime.sendMessage({
       type: 'playAdhan',
       audioFile: 'adhan.mp3'
+    }).catch(err => {
+      console.log('Message to offscreen may have failed, trying alternative:', err);
     });
     
     // Close offscreen document after 3 minutes
