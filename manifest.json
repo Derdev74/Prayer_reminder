@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "CCML Prayer Reminder",
-  "version": "2.0",
-  "description": "Shows notifications and plays adhan for CCML prayer times in Lausanne with daily live fetch.",
+  "version": "2.1",
+  "description": "Shows notifications and plays adhan for CCML prayer times in Lausanne. Fetches real times from Mawaqit daily.",
   
   "permissions": [
     "alarms",
@@ -18,16 +18,12 @@
   },
 
   "host_permissions": [
-    "https://www.ccmgl.ch/*"
-  ],
-  
-  "host_permissions": [
-    "https://www.ccmgl.ch/*"
+    "https://www.ccmgl.ch/*",
+    "https://mawaqit.net/*"
   ],
   
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   
   "action": {

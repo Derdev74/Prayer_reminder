@@ -1,113 +1,57 @@
 let PRAYER_TIMES = {};
 
-// Fetch prayer times from CCML website or use defaults
+// Fetch prayer times from Mawaqit (official CCML source)
 async function fetchPrayerTimes() {
   try {
-    // First, try to get from API if available (check if CCML has an API endpoint)
-    // This is a placeholder - you may need to find the actual API endpoint
-    
-    // For now, use default times for Lausanne (approximate times)
-    // These should be updated based on actual CCML times or season
-    const defaultTimes = getDefaultPrayerTimes();
-    
-    // Try to fetch from website
-    const url = "https://www.ccmgl.ch/fr/cultes/horaire-des-pri%C3%A8res";
+    console.log('Fetching prayer times from Mawaqit for CCML Lausanne...');
+
+    // Fetch from Mawaqit - official CCML prayer times platform
+    const url = "https://mawaqit.net/en/ccml";
     const response = await fetch(url);
-    const text = await response.text();
-    console.log('Fetched HTML length:', text.length);
-    console.log('Sample of fetched text:', text.substring(0, 500));
-    // Try multiple extraction patterns
-    let extractedTimes = {};
-    
-    // Pattern 1: Look for JSON data in script tags
-    const jsonMatch = text.match(/var\s+prayerTimes\s*=\s*({[^}]+})/);
-    if (jsonMatch) {
-      try {
-        extractedTimes = JSON.parse(jsonMatch[1]);
-      } catch (e) {
-        console.log('JSON parsing failed');
-      }
-    }
-    
-// Pattern 2: CCML table structure - extract from raw text
-    if (Object.keys(extractedTimes).length === 0) {
-      // Find today's date
-      const today = new Date();
-      const todayDate = today.getDate();
-      
-      // Look for a line containing today's date followed by times
-      const lines = text.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        // Check if line contains today's date as second item (after day name)
-        const parts = line.split(/\s+/);
-        if (parts[1] === String(todayDate)) {
-          // Extract times from this line - they appear after date and Islamic date
-          const timeMatches = line.match(/\d{2}:\d{2}/g);
-          if (timeMatches && timeMatches.length >= 6) {
-            // Order: Fadjr, Sunrise, Dhohr, Asr, Maghrib, Icha
-            extractedTimes.Fajr = timeMatches[0];
-            extractedTimes.Dhuhr = timeMatches[2]; // Skip sunrise at index 1
-            extractedTimes.Asr = timeMatches[3];
-            extractedTimes.Maghrib = timeMatches[4];
-            extractedTimes.Isha = timeMatches[5];
-            console.log('Extracted from line for date ' + todayDate + ':', extractedTimes);
-            break;
-          }
-        }
-      }
-    }
-    
-    // Pattern 3: Fallback regex patterns - CCML uses French names
-    if (Object.keys(extractedTimes).length === 0) {
-      const patterns = {
-        Fajr: [/(?:Fadjr|Fajr|Sobh|Subh)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:فجر)[^0-9]*(\d{1,2}:\d{2})/],
-        Dhuhr: [/(?:Dhohr|Dhuhr|Dohr|Zuhr)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:ظهر)[^0-9]*(\d{1,2}:\d{2})/],
-        Asr: [/(?:Asr|Aser)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:عصر)[^0-9]*(\d{1,2}:\d{2})/],
-        Maghrib: [/(?:Maghrib|Maghreb|Magrib)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:مغرب)[^0-9]*(\d{1,2}:\d{2})/],
-        Isha: [/(?:Icha|Isha|Ischaa)[^0-9]*(\d{1,2}[:h]\d{2})/i, /(?:عشاء)[^0-9]*(\d{1,2}:\d{2})/]
+    const html = await response.text();
+
+    console.log('Successfully fetched Mawaqit page');
+
+    // Extract the times array from the confData JSON
+    // Format: "times":["06:08","13:25","16:23","18:58","20:20"]
+    // Order: Fajr, Dhuhr, Asr, Maghrib, Isha
+    const timesMatch = html.match(/"times":\s*\["([^"]+)","([^"]+)","([^"]+)","([^"]+)","([^"]+)"\]/);
+
+    if (timesMatch && timesMatch.length === 6) {
+      PRAYER_TIMES = {
+        Fajr: timesMatch[1],
+        Dhuhr: timesMatch[2],
+        Asr: timesMatch[3],
+        Maghrib: timesMatch[4],
+        Isha: timesMatch[5]
       };
-      
-      for (const [prayer, patternList] of Object.entries(patterns)) {
-        for (const pattern of patternList) {
-          const match = text.match(pattern);
-          if (match && match[1]) {
-            // Normalize time format (replace h with :)
-            extractedTimes[prayer] = match[1].replace('h', ':');
-            break;
-          }
-        }
-      }
-    }
-    
-    // If we successfully extracted times, use them
-    if (Object.keys(extractedTimes).length === 5) {
-      PRAYER_TIMES = extractedTimes;
-      console.log('Extracted prayer times from website:', PRAYER_TIMES);
+
+      console.log('✓ Successfully extracted prayer times from Mawaqit:', PRAYER_TIMES);
+
+      // Save to storage
+      await chrome.storage.local.set({
+        prayerTimes: PRAYER_TIMES,
+        lastFetch: new Date().toISOString(),
+        source: 'mawaqit'
+      });
+
+      scheduleAlarms();
     } else {
-      // Use default times as fallback
-      PRAYER_TIMES = defaultTimes;
-      console.log('Using default prayer times:', PRAYER_TIMES);
+      console.error('Could not extract prayer times from Mawaqit page');
+      throw new Error('Failed to parse prayer times');
     }
-    
-    // Save to storage
-    await chrome.storage.local.set({ 
-      prayerTimes: PRAYER_TIMES,
-      lastFetch: new Date().toISOString(),
-      source: Object.keys(extractedTimes).length === 5 ? 'website' : 'default'
-    });
-    
-    scheduleAlarms();
-    
+
   } catch (error) {
-    console.error('Error fetching prayer times:', error);
-    
+    console.error('Error fetching prayer times from Mawaqit:', error);
+
     // Load from storage or use defaults
     const stored = await chrome.storage.local.get('prayerTimes');
     if (stored.prayerTimes && Object.keys(stored.prayerTimes).length === 5) {
       PRAYER_TIMES = stored.prayerTimes;
+      console.log('Using cached prayer times:', PRAYER_TIMES);
     } else {
       PRAYER_TIMES = getDefaultPrayerTimes();
+      console.log('Using default prayer times:', PRAYER_TIMES);
     }
     scheduleAlarms();
   }

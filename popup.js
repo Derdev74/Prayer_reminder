@@ -30,16 +30,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Load and display stored prayer times
   async function loadTimes() {
     try {
-      const data = await chrome.storage.local.get(["prayerTimes", "lastFetch"]);
+      const data = await chrome.storage.local.get(["prayerTimes", "lastFetch", "source"]);
       showTimes(data.prayerTimes);
-      
-      // Show last fetch time if available
+
+      // Show last fetch time and source if available
       if (data.lastFetch) {
         const lastFetch = new Date(data.lastFetch);
         const fetchInfo = document.createElement("p");
         fetchInfo.style.fontSize = "small";
         fetchInfo.style.color = "#666";
-        fetchInfo.textContent = `Last updated: ${lastFetch.toLocaleString()}`;
+        const source = data.source === 'mawaqit' ? ' (Mawaqit - Official CCML)' : '';
+        fetchInfo.textContent = `Last updated: ${lastFetch.toLocaleString()}${source}`;
         timesList.parentElement.insertBefore(fetchInfo, timesList.nextSibling);
       }
     } catch (error) {
@@ -114,13 +115,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
   
-  // Handle fetch from CCML website button
+  // Handle fetch from Mawaqit button
   fetchBtn.addEventListener("click", async () => {
     try {
       fetchBtn.disabled = true;
-      fetchBtn.textContent = "Fetching...";
-      
-      // First, try to fetch directly via background script
+      fetchBtn.textContent = "Fetching from Mawaqit...";
+
+      // Fetch directly via background script from Mawaqit
       const response = await chrome.runtime.sendMessage({ type: "fetchNow" });
       
       if (response && response.status === "ok" && response.times && Object.keys(response.times).length === 5) {
@@ -129,88 +130,25 @@ document.addEventListener("DOMContentLoaded", async () => {
           prayerTimes: response.times,
           lastFetch: new Date().toISOString()
         });
-        fetchBtn.textContent = "✓ Fetched Successfully!";
-        
+        fetchBtn.textContent = "✓ Fetched from Mawaqit!";
+
         setTimeout(() => {
-          fetchBtn.textContent = "🔄 Fetch Times from CCML";
+          fetchBtn.textContent = "🔄 Fetch Times from Mawaqit";
           fetchBtn.disabled = false;
         }, 2000);
       } else {
-        // Fallback: Try to inject content script into CCML tab
-        const tabs = await chrome.tabs.query({});
-        const ccmlTab = tabs.find(tab =>
-          tab.url && tab.url.includes("ccmgl.ch") && tab.url.includes("horaire")
-        );
-        
-        if (ccmlTab) {
-          // Inject content script
-          await chrome.scripting.executeScript({
-            target: { tabId: ccmlTab.id },
-            files: ["content-script.js"]
-          });
-          
-          // Send message to extract times
-          chrome.tabs.sendMessage(ccmlTab.id, { type: 'extractTimes' }, async (response) => {
-            if (response && response.times && Object.keys(response.times).length === 5) {
-              // Save the extracted times
-              await chrome.storage.local.set({ 
-                prayerTimes: response.times,
-                lastFetch: new Date().toISOString(),
-                source: 'tab-extraction'
-              });
-              
-              showTimes(response.times);
-              fetchBtn.textContent = "✓ Extracted from tab!";
-              setTimeout(() => {
-                fetchBtn.textContent = "Fetch Times from CCML";
-                fetchBtn.disabled = false;
-              }, 2000);
-            } else {
-              // Wait for content script to do its work
-              setTimeout(async () => {
-                await loadTimes();
-                fetchBtn.textContent = "✓ Extracted from tab!";
-                setTimeout(() => {
-                  fetchBtn.textContent = "Fetch Times from CCML";
-                  fetchBtn.disabled = false;
-                }, 2000);
-              }, 3000);
-            }
-          });
-        } else {
-          // No CCML tab open, try direct fetch
-          alert("Opening CCML website to fetch times... This may take a few seconds.");
-          chrome.tabs.create({
-            url: "https://www.ccmgl.ch/fr/cultes/horaire-des-pri%C3%A8res",
-            active: false
-          }, (tab) => {
-            // Wait for page to fully load and JavaScript to execute
-            setTimeout(async () => {
-              try {
-                await chrome.scripting.executeScript({
-                  target: { tabId: tab.id },
-                  files: ["content-script.js"]
-                });
-                // Wait longer for extraction to complete (content script will retry)
-                setTimeout(async () => {
-                  await loadTimes();
-                  chrome.tabs.remove(tab.id);
-                }, 10000); // Extended wait time for JS to execute and extract times
-              } catch (err) {
-                console.error("Error injecting script:", err);
-              }
-            }, 4000); // Wait for page to load
-          });
-          
-          fetchBtn.textContent = "Fetch Times from CCML Tab";
+        // If background fetch failed, show error
+        fetchBtn.textContent = "Error - Try Again";
+        setTimeout(() => {
+          fetchBtn.textContent = "🔄 Fetch Times from Mawaqit";
           fetchBtn.disabled = false;
-        }
+        }, 2000);
       }
     } catch (error) {
       console.error("Error fetching times:", error);
       fetchBtn.textContent = "Error - Try Again";
       setTimeout(() => {
-        fetchBtn.textContent = "Fetch Times from CCML Tab";
+        fetchBtn.textContent = "🔄 Fetch Times from Mawaqit";
         fetchBtn.disabled = false;
       }, 2000);
     }
