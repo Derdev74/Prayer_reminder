@@ -51,8 +51,9 @@ Click the extension icon and use the "Change Mosque" button to select a differen
 | `notifications` | Show prayer reminders |
 | `storage` | Save selected mosque and prayer times |
 | `offscreen` | Play adhan audio (required for Manifest V3) |
+| `geolocation` | Find nearby mosques (only used when you click "Use my location") |
 
-**Note:** When you click "Use my location", your browser will ask for location permission. This is a one-time browser prompt, not an extension permission. The extension does not store or track your location.
+**Note:** Location is only accessed when you explicitly click "Use my location". The extension does not store or track your location.
 
 ## Audio Sources
 
