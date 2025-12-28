@@ -1,27 +1,28 @@
 {
   "manifest_version": 3,
-  "name": "CCML Prayer Reminder",
-  "version": "2.1",
-  "description": "Shows notifications and plays adhan for CCML prayer times in Lausanne. Fetches real times from Mawaqit daily.",
-  
+  "name": "Prayer Reminder",
+  "version": "3.0",
+  "description": "Shows notifications and plays adhan for prayer times. Search for any mosque on Mawaqit or use your location to find nearby mosques.",
+
   "permissions": [
     "alarms",
     "notifications",
     "storage",
-    "scripting",
-    "tabs",
     "offscreen"
   ],
 
+  "optional_permissions": [
+    "geolocation"
+  ],
+
   "host_permissions": [
-    "https://www.ccmgl.ch/*",
     "https://mawaqit.net/*"
   ],
-  
+
   "background": {
     "service_worker": "background.js"
   },
-  
+
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -30,25 +31,17 @@
       "128": "icon.png"
     }
   },
-  
+
   "icons": {
     "16": "icon.png",
     "48": "icon.png",
     "128": "icon.png"
   },
-  
+
   "web_accessible_resources": [
     {
-      "resources": ["adhan.mp3", "icon.png"],
+      "resources": ["icon.png"],
       "matches": ["<all_urls>"]
-    }
-  ],
-  
-  "content_scripts": [
-    {
-      "matches": ["https://www.ccmgl.ch/fr/cultes/horaire-des-pri*"],
-      "js": ["content-script.js"],
-      "run_at": "document_idle"
     }
   ]
 }

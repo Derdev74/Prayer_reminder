@@ -2,49 +2,76 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>CCML Prayer Times</title>
+  <title>Prayer Reminder</title>
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      width: 320px;
+      width: 340px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: #333;
     }
-    
+
     .header {
       background: rgba(255, 255, 255, 0.95);
       padding: 15px;
       text-align: center;
       border-bottom: 2px solid #667eea;
     }
-    
+
     h3 {
       color: #667eea;
       font-size: 18px;
       margin-bottom: 5px;
     }
-    
-    .subtitle {
-      font-size: 11px;
+
+    .mosque-name {
+      font-size: 12px;
       color: #666;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    
+
     .content {
       background: white;
       padding: 15px;
     }
-    
+
+    /* Onboarding View */
+    #onboarding-view {
+      text-align: center;
+      padding: 20px 10px;
+    }
+
+    #onboarding-view h4 {
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+
+    #onboarding-view p {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    /* Main View */
+    #main-view {
+      display: none;
+    }
+
     #times-list {
       list-style: none;
       margin-bottom: 15px;
     }
-    
+
     #times-list li {
       padding: 8px;
       margin: 5px 0;
@@ -54,12 +81,12 @@
       justify-content: space-between;
       align-items: center;
     }
-    
+
     #times-list li strong {
       color: #667eea;
-      min-width: 60px;
+      min-width: 70px;
     }
-    
+
     .section-title {
       font-weight: bold;
       color: #667eea;
@@ -68,48 +95,128 @@
       border-bottom: 1px solid #e0e0e0;
       padding-bottom: 5px;
     }
-    
-    #edit-times {
-      margin-top: 10px;
-    }
-    
-    .time-input-row {
+
+    /* Search Section */
+    .search-container {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       margin-bottom: 10px;
     }
-    
-    .time-input-group {
+
+    #mosque-search {
       flex: 1;
-      display: flex;
-      align-items: center;
-      background: #f8f9fa;
-      padding: 5px 10px;
-      border-radius: 5px;
-    }
-    
-    .time-input-group label {
-      font-size: 12px;
-      color: #667eea;
-      font-weight: bold;
-      min-width: 45px;
-    }
-    
-    input[type="text"] {
-      width: 60px;
-      padding: 5px;
+      padding: 10px;
       border: 1px solid #ddd;
-      border-radius: 3px;
+      border-radius: 5px;
       font-size: 13px;
-      text-align: center;
     }
-    
-    input[type="text"]:focus {
+
+    #mosque-search:focus {
       outline: none;
       border-color: #667eea;
       box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
     }
-    
+
+    #search-btn {
+      padding: 10px 15px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    #search-btn:hover:not(:disabled) {
+      background: #5568d3;
+    }
+
+    #search-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    /* Location Link */
+    .location-link {
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    .location-link a {
+      color: #667eea;
+      font-size: 12px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .location-link a:hover {
+      text-decoration: underline;
+    }
+
+    /* Search Results */
+    #search-results {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+      display: none;
+    }
+
+    .mosque-item {
+      padding: 10px;
+      margin: 5px 0;
+      background: #f8f9fa;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .mosque-item:hover {
+      background: #e9ecef;
+    }
+
+    .mosque-item .name {
+      font-weight: bold;
+      color: #333;
+      font-size: 13px;
+    }
+
+    .mosque-item .address {
+      font-size: 11px;
+      color: #666;
+      margin-top: 3px;
+    }
+
+    .mosque-item .distance {
+      font-size: 11px;
+      color: #667eea;
+      margin-top: 3px;
+    }
+
+    /* Status Messages */
+    .status-message {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .status-message.error {
+      background: #fee;
+      color: #c00;
+    }
+
+    .status-message.success {
+      background: #efe;
+      color: #060;
+    }
+
+    .status-message.info {
+      background: #eef;
+      color: #006;
+    }
+
+    /* Buttons */
     button {
       background: #667eea;
       color: white;
@@ -122,24 +229,35 @@
       margin-top: 10px;
       transition: background 0.3s;
     }
-    
+
     button:hover:not(:disabled) {
       background: #5568d3;
     }
-    
+
     button:disabled {
       background: #ccc;
       cursor: not-allowed;
     }
-    
-    #fetch-btn {
+
+    #change-mosque-btn {
+      background: transparent;
+      color: #667eea;
+      border: 1px solid #667eea;
+      margin-top: 15px;
+    }
+
+    #change-mosque-btn:hover {
+      background: rgba(102, 126, 234, 0.1);
+    }
+
+    #refresh-btn {
       background: #48bb78;
     }
-    
-    #fetch-btn:hover:not(:disabled) {
+
+    #refresh-btn:hover:not(:disabled) {
       background: #38a169;
     }
-    
+
     .help-text {
       font-size: 11px;
       color: #666;
@@ -149,16 +267,16 @@
       border-radius: 5px;
       line-height: 1.4;
     }
-    
+
     .help-text a {
       color: #667eea;
       text-decoration: none;
     }
-    
+
     .help-text a:hover {
       text-decoration: underline;
     }
-    
+
     .footer {
       background: rgba(255, 255, 255, 0.9);
       padding: 10px;
@@ -167,64 +285,82 @@
       color: #666;
       border-top: 1px solid #e0e0e0;
     }
+
+    .last-updated {
+      font-size: 11px;
+      color: #888;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    /* Loading Spinner */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <h3>🕌 CCML Prayer Times</h3>
-    <div class="subtitle">Centre Culturel des Musulmans de Lausanne</div>
+    <h3>Prayer Reminder</h3>
+    <div class="mosque-name" id="current-mosque-name">Select a mosque to get started</div>
   </div>
-  
-  <div class="content">
-    <ul id="times-list"></ul>
-    
-    <div class="section-title">Manual Time Entry</div>
-    <form id="edit-times">
-      <div class="time-input-row">
-        <div class="time-input-group">
-          <label for="Fajr">Fajr:</label>
-          <input id="Fajr" type="text" placeholder="05:55" />
-        </div>
-        <div class="time-input-group">
-          <label for="Dhuhr">Dhuhr:</label>
-          <input id="Dhuhr" type="text" placeholder="13:25" />
-        </div>
-      </div>
-      
-      <div class="time-input-row">
-        <div class="time-input-group">
-          <label for="Asr">Asr:</label>
-          <input id="Asr" type="text" placeholder="16:35" />
-        </div>
-        <div class="time-input-group">
-          <label for="Maghrib">Maghrib:</label>
-          <input id="Maghrib" type="text" placeholder="19:15" />
-        </div>
-      </div>
-      
-      <div class="time-input-row">
-        <div class="time-input-group">
-          <label for="Isha">Isha:</label>
-          <input id="Isha" type="text" placeholder="20:45" />
-        </div>
-      </div>
-      
-      <button type="submit">💾 Save Prayer Times</button>
-    </form>
-    
-    <button id="fetch-btn">🔄 Fetch Times from Mawaqit</button>
 
-    <div class="help-text">
-      <strong>Tip:</strong> The extension automatically fetches times daily from
-      <a href="https://mawaqit.net/en/ccml" target="_blank">Mawaqit</a> (official CCML platform).
-      You can also enter times manually above. Times should be in 24-hour format (HH:MM).
+  <div class="content">
+    <!-- Onboarding View (shown when no mosque selected) -->
+    <div id="onboarding-view">
+      <h4>Welcome!</h4>
+      <p>Search for your mosque to receive prayer time notifications with adhan.</p>
+
+      <div class="search-container">
+        <input type="text" id="mosque-search" placeholder="Search mosque name or city..." />
+        <button id="search-btn">Search</button>
+      </div>
+
+      <div class="location-link">
+        <a href="#" id="use-location-link">Or use my location to find nearby mosques</a>
+      </div>
+
+      <div class="loading" id="search-loading">
+        <div class="spinner"></div>
+        <div>Searching...</div>
+      </div>
+
+      <div id="search-results"></div>
+      <div id="status-message"></div>
+    </div>
+
+    <!-- Main View (shown when mosque is selected) -->
+    <div id="main-view">
+      <ul id="times-list"></ul>
+      <div class="last-updated" id="last-updated"></div>
+
+      <button id="refresh-btn">Refresh Prayer Times</button>
+      <button id="change-mosque-btn">Change Mosque</button>
     </div>
   </div>
-  
+
   <div class="footer">
     Notifications will appear at each prayer time with adhan
   </div>
-  
+
   <script src="popup.js"></script>
 </body>
 </html>
