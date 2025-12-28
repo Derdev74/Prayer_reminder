@@ -51,9 +51,9 @@ Click the extension icon and use the "Change Mosque" button to select a differen
 | `notifications` | Show prayer reminders |
 | `storage` | Save selected mosque and prayer times |
 | `offscreen` | Play adhan audio (required for Manifest V3) |
-| `geolocation` | Find nearby mosques (only used when you click "Use my location") |
+| `geolocation` | Find nearby mosques (only when you click "Use my location") |
 
-**Note:** Location is only accessed when you explicitly click "Use my location". The extension does not store or track your location.
+**Note:** Location is only accessed when you explicitly click "Use my location". It is never stored or tracked.
 
 ## Audio Sources
 
@@ -67,6 +67,50 @@ Adhan audio is streamed from [AlAdhan.com](https://aladhan.com):
 - **Service Worker:** background.js
 - **API:** Mawaqit mosque search and prayer times
 - **No tracking, no analytics, no data collection**
+
+## Important Notes
+
+- **Browser must be running:** Chrome/browser must be running for notifications and adhan to work. If your browser is closed at prayer time, you won't receive notifications.
+- **Default mosque:** First-time setup uses CCML (Lausanne, Switzerland) as default. Change it to your local mosque.
+- **Daily updates:** Prayer times are automatically fetched daily at 12:01 AM and when the browser starts.
+- **Alarm persistence:** Alarms are rescheduled daily and persist across browser restarts (unless browser is closed for extended periods).
+- **Smart skip feature:** If browser was closed and reopens more than 1 hour after a scheduled prayer time, the adhan is automatically skipped to avoid late/outdated notifications.
+
+## Troubleshooting
+
+**Location not working?**
+- Make sure you're clicking the location link from the extension popup (not from settings)
+- Check that location permissions are enabled in your browser settings
+- If it still doesn't work, search by mosque name or city instead
+
+**No notifications appearing?**
+- Ensure Chrome notifications are enabled in your system settings
+- Check that the extension has notification permissions
+- Make sure your browser is running at prayer times
+
+**Adhan not playing?**
+- Check your system volume
+- Ensure audio permissions are granted
+- The extension uses online audio from AlAdhan.com - check your internet connection
+- If browser was closed for more than 1 hour, adhan is skipped automatically
+
+**Prayer times incorrect?**
+- Click "Refresh Prayer Times" in the popup
+- Verify you selected the correct mosque
+- Prayer times are fetched from Mawaqit's API and updated daily
+
+## Known Issues & Limitations
+
+- **Browser dependency:** Notifications only work when the browser is running. Consider using a dedicated prayer times desktop app if you need notifications when browser is closed.
+- **Daily update timing:** Prayer times update at midnight (12:01 AM). If browser is closed at this time, the update happens when browser next starts.
+- **Fallback audio:** If primary adhan audio from AlAdhan.com fails to load, a fallback URL is used, but reliability depends on external services.
+
+## Contributing
+
+Found a bug or want to contribute? Feel free to:
+- Report issues on the project repository
+- Submit pull requests with improvements
+- Suggest new features
 
 ## License
 
