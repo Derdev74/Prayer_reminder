@@ -10,6 +10,17 @@ const MAX_ADHAN_DELAY_MS = 60 * 60 * 1000; // 1 hour
 // Reminder delay after prayer time (15 minutes)
 const REMINDER_DELAY_MS = 15 * 60 * 1000; // 15 minutes
 
+// Default mosque: CCML (Complexe Culturel Musulman de Lausanne)
+const DEFAULT_MOSQUE = {
+  uuid: "f2479c48-6aaf-48b5-847a-ae19d0942753",
+  name: "CCML",
+  slug: "ccml",
+  address: "Avenue de la Confrérie 11 1008 Prilly Switzerland",
+  latitude: 46.530613201014,
+  longitude: 6.6071931551217,
+  prayerTimes: {}
+};
+
 // Fetch prayer times from Mawaqit API for selected mosque
 async function fetchPrayerTimes() {
   // Debounce rapid calls
@@ -25,36 +36,40 @@ async function fetchPrayerTimes() {
         SELECTED_MOSQUE = stored.selectedMosque;
 
         if (!SELECTED_MOSQUE || !SELECTED_MOSQUE.slug) {
-          console.log('No mosque selected. Please select a mosque first.');
-          // Use cached times if available
-          if (stored.prayerTimes && Object.keys(stored.prayerTimes).length === 5) {
-            PRAYER_TIMES = stored.prayerTimes;
-            scheduleAlarms();
-          }
-          resolve();
-          return;
+          console.log('No mosque selected. Using default mosque (CCML).');
+          SELECTED_MOSQUE = DEFAULT_MOSQUE;
+          await chrome.storage.local.set({ selectedMosque: DEFAULT_MOSQUE });
         }
 
         console.log(`Fetching prayer times for: ${SELECTED_MOSQUE.name}`);
 
-        // Fetch from Mawaqit mosque page
-        const url = `https://mawaqit.net/en/${SELECTED_MOSQUE.slug}`;
-        const response = await fetch(url);
-        const html = await response.text();
+        // Fetch from Mawaqit API (more reliable than HTML scraping)
+        const response = await fetch(
+          `https://mawaqit.net/api/2.0/mosque/search?word=${encodeURIComponent(SELECTED_MOSQUE.slug)}`
+        );
 
-        // Extract times array: [Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha]
-        const timesMatch = html.match(/"times":\s*\["([^"]+)","([^"]+)","([^"]+)","([^"]+)","([^"]+)","([^"]+)"\]/);
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
 
-        if (timesMatch && timesMatch.length === 7) {
+        const mosques = await response.json();
+
+        // Find the exact mosque by slug or uuid
+        const mosque = mosques.find(m =>
+          m.slug === SELECTED_MOSQUE.slug || m.uuid === SELECTED_MOSQUE.uuid
+        );
+
+        if (mosque && mosque.times && mosque.times.length >= 6) {
+          // Times array: [Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha]
           PRAYER_TIMES = {
-            Fajr: timesMatch[1],
-            Dhuhr: timesMatch[3],  // Skip Sunrise at index 2
-            Asr: timesMatch[4],
-            Maghrib: timesMatch[5],
-            Isha: timesMatch[6]
+            Fajr: mosque.times[0],
+            Dhuhr: mosque.times[2],  // Skip Sunrise at index 1
+            Asr: mosque.times[3],
+            Maghrib: mosque.times[4],
+            Isha: mosque.times[5]
           };
 
-          console.log('Successfully extracted prayer times:', PRAYER_TIMES);
+          console.log('Successfully fetched prayer times:', PRAYER_TIMES);
 
           // Save to storage
           await chrome.storage.local.set({
@@ -65,7 +80,7 @@ async function fetchPrayerTimes() {
 
           scheduleAlarms();
         } else {
-          throw new Error('Could not extract prayer times from Mawaqit page');
+          throw new Error('Mosque not found or times unavailable');
         }
       } catch (error) {
         console.error('Error fetching prayer times:', error);

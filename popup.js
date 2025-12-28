@@ -1,4 +1,13 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  // Prayer emojis for better UI (must be defined before use)
+  const PRAYER_EMOJIS = {
+    Fajr: "🌅",
+    Dhuhr: "☀️",
+    Asr: "🌤️",
+    Maghrib: "🌇",
+    Isha: "🌙"
+  };
+
   // DOM Elements
   const onboardingView = document.getElementById("onboarding-view");
   const mainView = document.getElementById("main-view");
@@ -73,7 +82,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     times = times || {};
 
     timesList.innerHTML = prayers
-      .map(prayer => `<li><strong>${prayer}:</strong> <span>${times[prayer] || "Not set"}</span></li>`)
+      .map(prayer => `<li><strong>${PRAYER_EMOJIS[prayer]} ${prayer}:</strong> <span>${times[prayer] || "Not set"}</span></li>`)
       .join("");
   }
 
@@ -110,16 +119,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Handle location-based search
   async function handleLocationSearch(e) {
     e.preventDefault();
+
+    // Check if geolocation is available
+    if (!navigator.geolocation) {
+      showStatus("Geolocation is not supported. Please search by name.", "error");
+      return;
+    }
+
     setLoading(true);
     clearStatus();
-    showStatus("Requesting location access...", "info");
+    showStatus("Getting your location...", "info");
 
     try {
-      // Get user's location
+      // Get user's location - browser will prompt for permission if needed
       const position = await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: false,
-          timeout: 10000,
+          timeout: 15000,
           maximumAge: 300000 // 5 minutes cache
         });
       });
@@ -139,16 +155,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         showStatus(response.error || "Could not find nearby mosques.", "error");
       }
+
     } catch (error) {
       console.error("Location search error:", error);
       if (error.code === 1) {
-        showStatus("Location access denied. Please search by name instead.", "error");
+        // Permission denied - provide helpful guidance
+        showStatus("Location access denied. Please enable location in your browser settings, then try again. Or search by mosque name.", "error");
       } else if (error.code === 2) {
-        showStatus("Could not determine location. Please search by name.", "error");
+        showStatus("Could not determine location. Please search by name instead.", "error");
       } else if (error.code === 3) {
-        showStatus("Location request timed out. Please try again.", "error");
+        showStatus("Location request timed out. Please try again or search by name.", "error");
       } else {
-        showStatus("Location search failed. Please search by name.", "error");
+        showStatus("Location not available in extension popup. Please search by mosque name instead.", "error");
       }
     } finally {
       setLoading(false);
@@ -216,7 +234,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Refresh prayer times
   async function handleRefresh() {
     refreshBtn.disabled = true;
-    refreshBtn.textContent = "Refreshing...";
+    refreshBtn.textContent = "⏳ Refreshing...";
 
     try {
       const response = await chrome.runtime.sendMessage({ type: "fetchNow" });
@@ -224,17 +242,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (response.status === "ok" && response.times) {
         displayPrayerTimes(response.times);
         lastUpdated.textContent = `Last updated: ${new Date().toLocaleString()}`;
-        refreshBtn.textContent = "Updated!";
+        refreshBtn.textContent = "✅ Updated!";
       } else {
-        refreshBtn.textContent = "Refresh Failed";
+        refreshBtn.textContent = "❌ Refresh Failed";
       }
     } catch (error) {
       console.error("Refresh error:", error);
-      refreshBtn.textContent = "Refresh Failed";
+      refreshBtn.textContent = "❌ Refresh Failed";
     }
 
     setTimeout(() => {
-      refreshBtn.textContent = "Refresh Prayer Times";
+      refreshBtn.textContent = "🔄 Refresh Prayer Times";
       refreshBtn.disabled = false;
     }, 2000);
   }
@@ -247,7 +265,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Helper: Show status message
   function showStatus(message, type) {
-    statusMessage.innerHTML = `<div class="status-message ${type}">${message}</div>`;
+    const icons = {
+      error: "❌",
+      success: "✅",
+      info: "ℹ️"
+    };
+    const icon = icons[type] || "";
+    statusMessage.innerHTML = `<div class="status-message ${type}">${icon} ${message}</div>`;
   }
 
   // Helper: Clear status message

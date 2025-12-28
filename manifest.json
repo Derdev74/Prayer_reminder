@@ -11,10 +11,6 @@
     "offscreen"
   ],
 
-  "optional_permissions": [
-    "geolocation"
-  ],
-
   "host_permissions": [
     "https://mawaqit.net/*"
   ],
