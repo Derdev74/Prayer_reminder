@@ -16,65 +16,59 @@ const FALLBACK_URLS = {
 
 let audio = null;
 
-// Listen for messages to play audio
+// Load an audio URL and play it only once it's ready (avoids AbortError race condition)
+function tryPlay(url) {
+  return new Promise((resolve, reject) => {
+    const a = new Audio(url);
+    a.volume = 0.7;
+    a.addEventListener('canplay', () => {
+      a.play().then(() => resolve(a)).catch(reject);
+    }, { once: true });
+    a.addEventListener('error', (e) => {
+      reject(new Error(`Failed to load audio: ${e.type}`));
+    }, { once: true });
+  });
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Offscreen received message:', request);
+  if (request.type !== 'playAdhan') return false;
 
-  if (request.type === 'playAdhan') {
-    const prayerName = request.prayerName || 'regular';
-    const isFajr = prayerName.toLowerCase() === 'fajr';
-    const adhanType = isFajr ? 'fajr' : 'regular';
+  const prayerName = request.prayerName || '';
+  const isFajr = prayerName.toLowerCase() === 'fajr';
+  const adhanType = isFajr ? 'fajr' : 'regular';
 
-    console.log(`Playing ${adhanType} adhan for ${prayerName} prayer`);
+  console.log(`Playing ${adhanType} adhan for ${prayerName}`);
 
+  if (audio) {
+    audio.pause();
+    audio = null;
+  }
+
+  // Acknowledge receipt immediately so background.js doesn't retry
+  sendResponse({ status: 'received', adhanType });
+
+  // Async playback with clean fallback — separated from sendResponse
+  (async () => {
     try {
-      // Stop any currently playing audio
-      if (audio) {
-        audio.pause();
-        audio = null;
+      audio = await tryPlay(ADHAN_URLS[adhanType]);
+      console.log(`${adhanType} adhan playing`);
+    } catch (primaryErr) {
+      console.error(`Primary URL failed (${primaryErr.message}), trying fallback...`);
+      try {
+        audio = await tryPlay(FALLBACK_URLS[adhanType]);
+        console.log('Fallback adhan playing');
+      } catch (fallbackErr) {
+        console.error(`Fallback also failed: ${fallbackErr.message}`);
+        return;
       }
-
-      // Create new audio instance with appropriate adhan
-      audio = new Audio(ADHAN_URLS[adhanType]);
-      audio.volume = 0.7;
-
-      // If primary URL fails, try fallback
-      audio.onerror = (e) => {
-        console.error('Primary adhan URL failed:', e);
-        console.log('Trying fallback URL...');
-        audio = new Audio(FALLBACK_URLS[adhanType]);
-        audio.volume = 0.7;
-        audio.play()
-          .then(() => console.log('Fallback audio playing'))
-          .catch(err => console.error('Fallback audio also failed:', err));
-      };
-
-      // Play audio
-      audio.play()
-        .then(() => {
-          console.log(`${adhanType} adhan started playing successfully`);
-          sendResponse({ status: 'playing', adhanType });
-        })
-        .catch(error => {
-          console.error('Error playing adhan:', error);
-          sendResponse({ status: 'error', error: error.message });
-        });
-
-      // Clean up when finished
-      audio.addEventListener('ended', () => {
-        console.log('Adhan finished playing');
-        audio = null;
-      });
-    } catch (error) {
-      console.error('Exception in playAdhan handler:', error);
-      sendResponse({ status: 'error', error: error.message });
     }
 
-    return true; // Keep message channel open for async response
-  }
+    audio.addEventListener('ended', () => {
+      console.log('Adhan finished playing');
+      audio = null;
+    }, { once: true });
+  })();
 });
 
 // Keep the document alive during playback
-setInterval(() => {
-  // Heartbeat to keep document active during playback
-}, 1000);
+setInterval(() => {}, 1000);
