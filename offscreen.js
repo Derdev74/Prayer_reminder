@@ -10,7 +10,7 @@ const ADHAN_URLS = {
 
 // Fallback URLs in case primary fails
 const FALLBACK_URLS = {
-  fajr: 'https://www.islamcan.com/audio/adhan/azan1.mp3',
+  fajr: 'https://cdn.aladhan.com/audio/adhans/2/Fajr.mp3',
   regular: 'https://www.islamcan.com/audio/adhan/azan1.mp3'
 };
 

@@ -32,7 +32,7 @@ async function fetchPrayerTimes() {
     fetchDebounceTimer = setTimeout(async () => {
       try {
         // Load selected mosque from storage
-        const stored = await chrome.storage.local.get(['selectedMosque', 'prayerTimes']);
+        const stored = await chrome.storage.local.get('selectedMosque');
         SELECTED_MOSQUE = stored.selectedMosque;
 
         if (!SELECTED_MOSQUE || !SELECTED_MOSQUE.slug) {
@@ -194,7 +194,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     }
 
     // Reschedule this specific prayer for tomorrow (always, even if skipped)
-    const time = PRAYER_TIMES[prayerName];
+    // Read from storage since in-memory PRAYER_TIMES may be lost after SW restart
+    const storedTimes = await chrome.storage.local.get('prayerTimes');
+    const time = storedTimes.prayerTimes?.[prayerName] || PRAYER_TIMES[prayerName];
     if (time) {
       const [hour, minute] = time.split(':').map(Number);
       const tomorrow = new Date();
@@ -246,18 +248,28 @@ async function playAdhan(prayerName) {
         reasons: ['AUDIO_PLAYBACK'],
         justification: 'Play adhan audio for prayer notification'
       });
-
-      // Wait a bit for document to be ready
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    // Send message to offscreen document to play audio with prayer name
-    await chrome.runtime.sendMessage({
-      type: 'playAdhan',
-      prayerName: prayerName
-    }).catch(err => {
-      console.log('Message to offscreen may have failed:', err);
-    });
+    // Retry sending the message to handle offscreen document not being ready yet
+    let messageSent = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        await chrome.runtime.sendMessage({
+          type: 'playAdhan',
+          prayerName: prayerName
+        });
+        messageSent = true;
+        console.log(`Adhan message sent for ${prayerName} (attempt ${attempt + 1})`);
+        break;
+      } catch (err) {
+        console.log(`Message attempt ${attempt + 1} failed:`, err);
+      }
+    }
+
+    if (!messageSent) {
+      console.error('Failed to send adhan message after all retries');
+    }
 
     // Close offscreen document after 4 minutes (adhan is typically 3-4 minutes)
     setTimeout(async () => {
